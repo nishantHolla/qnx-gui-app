@@ -2,6 +2,9 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <pthread.h>
+
+static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void rmp_log_base(FILE* stream, const char* level, const char* author,
                          const char* fmt, va_list args);
@@ -10,7 +13,9 @@ void rmp_log_error(const char* author, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
+  pthread_mutex_lock(&log_mutex);
   rmp_log_base(stderr, "ERRR", author, fmt, args);
+  pthread_mutex_unlock(&log_mutex);
 
   va_end(args);
 }

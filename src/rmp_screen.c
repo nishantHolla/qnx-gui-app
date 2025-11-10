@@ -10,6 +10,9 @@
 
 #define RMP_SCREEN_TARGET_FPS 3
 #define RMP_SCREEN_FRAME_TIME_US (1000000 / RMP_SCREEN_TARGET_FPS)
+#define BACKGROUND_COLOR 0xff0000ff
+
+static void render(rmp_screen_t* screen, rmp_app_t* app);
 
 rmp_screenRet_e rmp_screen_init(rmp_screen_t* screen, rmp_app_t* app) {
   if (!screen || !app) {
@@ -78,11 +81,9 @@ void* rmp_screen_run(void* args) {
     pthread_mutex_unlock(&app->mutex);
 
     time_t frame_start = rmp_time_get_us();
-
-    /// Screen render goes here
-    rmp_log_info("screen", "Running at frame rate %d\n", RMP_SCREEN_TARGET_FPS);
-
+    render(screen, app);
     time_t frame_duration = rmp_time_get_us() - frame_start;
+
     if (frame_duration < RMP_SCREEN_FRAME_TIME_US) {
       usleep(RMP_SCREEN_FRAME_TIME_US - frame_duration);
     }
@@ -90,4 +91,11 @@ void* rmp_screen_run(void* args) {
   pthread_mutex_unlock(&app->mutex);
 
   return NULL;
+}
+
+static void render(rmp_screen_t* screen, rmp_app_t* app) {
+  int win_background[] = {SCREEN_BLIT_COLOR, BACKGROUND_COLOR, SCREEN_BLIT_END};
+  screen_fill(screen->ctx, screen->buf, win_background);
+
+  screen_post_window(screen->win, screen->buf, 0, NULL, 0);
 }

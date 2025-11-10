@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <time.h>
 
-#define RMP_KEYPAD_TARGET_FPS 10
+#define RMP_KEYPAD_TARGET_FPS 60
 #define RMP_KEYPAD_FRAME_TIME_US (1000000 / RMP_KEYPAD_TARGET_FPS)
 
 static rmp_keypadRet_e init_gpio(int rows[4], int cols[4]);
@@ -68,8 +68,21 @@ void* rmp_keypad_run(void* args) {
 
     time_t frame_start = rmp_time_get_us();
 
-    /// Keypad scan goes here
-    rmp_log_info("keypad", "Running at frame rate %d\n", RMP_KEYPAD_TARGET_FPS);
+    int old_keys[16];
+    memcpy(old_keys, keypad->keys, sizeof(old_keys));
+    scan_keypad(keypad->row_pins, keypad->col_pins, keypad->keys);
+
+    for (int i = 0; i < 16; ++i) {
+      char c = (i > 9) ? (i - 10) + 'a' : i + '0';
+      if (old_keys[i] != keypad->keys[i]) {
+        if (keypad->keys[i]) {
+          rmp_log_info("keypad", "KEYDOWN %c\n", c);
+        }
+        else {
+          rmp_log_info("keypad", "KEYUP %c\n", c);
+        }
+      }
+    }
 
     time_t frame_duration = rmp_time_get_us() - frame_start;
     if (frame_duration < RMP_KEYPAD_FRAME_TIME_US) {
@@ -105,14 +118,13 @@ static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]) {
     usleep(10000);
 
     for (int c = 0; c < 4; c++) {
-      if (rpi_gpio_input(cols[c], &level) == 0 && level == GPIO_LOW) {
-        rpi_gpio_output(rows[r], GPIO_HIGH);
-        keys[c * 4 + r] = 1;
+      if (rpi_gpio_input(cols[c], &level) != 0) {
+        continue;
       }
-      else {
-        keys[c * 4 + r] = 0;
-      }
+
+      keys[c * 4 + r] = (level == GPIO_LOW) ? 1 : 0;
     }
+
     rpi_gpio_output(rows[r], GPIO_HIGH);
   }
 

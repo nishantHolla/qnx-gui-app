@@ -58,6 +58,7 @@ void* rmp_app_run(void* args) {
       usleep(RMP_APP_FRAME_TIME_US - frame_duration);
     }
   }
+  pthread_mutex_unlock(&app->mutex);
 
   return NULL;
 }

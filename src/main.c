@@ -1,21 +1,26 @@
+#include "rmp_app.h"
 #include "rmp_log.h"
-#include "rmp_time.h"
 
-#include <stdbool.h>
-
-#define TARGET_FPS 2
-#define FRAME_TIME_US (1000000 / TARGET_FPS)
+#include <stdlib.h>
 
 int main(void) {
+  rmp_app_t app;
+  rmp_app_init(&app);
 
-  while (true) {
-    time_t frame_start = rmp_time_get_us();
-    rmp_log_info("main", "Running at frame rate %d\n", TARGET_FPS);
-    time_t frame_duration = rmp_time_get_us() - frame_start;
-    if (frame_duration < FRAME_TIME_US) {
-      usleep(FRAME_TIME_US - frame_duration);
-    }
+  pthread_t app_tid;
+  if (pthread_create(&app_tid, NULL, rmp_app_run, (void*)&app) != 0) {
+    rmp_log_error("main", "Failed to create app thread\n");
+    return EXIT_FAILURE;
   }
 
-  return 0;
+  pthread_mutex_lock(&app.mutex);
+  while (app.running) {
+    pthread_cond_wait(&app.cond, &app.mutex);
+  }
+  pthread_mutex_unlock(&app.mutex);
+
+  pthread_join(app_tid, NULL);
+
+  rmp_app_free(&app);
+  return EXIT_SUCCESS;
 }

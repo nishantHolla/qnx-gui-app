@@ -1,49 +1,53 @@
-#include <stdio.h>
-#include <assert.h>
-#include <math.h>
-#include "rmp_vec2.h"
+#include "rmp_app.h"
+#include "rmp_keypad.h"
+#include "rmp_screen.h"
+#include "rmp_log.h"
 
-#define EPSILON 1e-9
-#define ASSERT_EQ_DOUBLE(a, b) assert(fabs((a) - (b)) < EPSILON)
-#define ASSERT_VEC_EQ(v, xval, yval) \
-    do { \
-        ASSERT_EQ_DOUBLE((v).x, (xval)); \
-        ASSERT_EQ_DOUBLE((v).y, (yval)); \
-    } while (0)
+#include <stdlib.h>
 
 int main(void) {
-    printf("Running rmp_vec2_t function API tests...\n");
+  rmp_app_t app;
+  rmp_app_init(&app);
 
-    rmp_vec2_t a, b, c, min, max;
-    rmp_vec2_set(&a, 3.0, 4.0);
-    ASSERT_VEC_EQ(a, 3.0, 4.0);
+  rmp_app_log_entity("pad_a", app.pad_a);
+  rmp_app_log_entity("pad_b", app.pad_b);
+  rmp_app_log_entity("ball",  app.ball);
 
-    rmp_vec2_set(&b, 1.0, 2.0);
-    rmp_vec2_add(&c, a, b);
-    ASSERT_VEC_EQ(c, 4.0, 6.0);
+  // rmp_keypad_t keypad;
+  // rmp_keypad_init(&keypad, &app);
 
-    rmp_vec2_sub(&c, a, b);
-    ASSERT_VEC_EQ(c, 2.0, 2.0);
+  rmp_screen_t screen;
+  rmp_screen_init(&screen, &app);
 
-    rmp_vec2_scale(&c, a, 2.0);
-    ASSERT_VEC_EQ(c, 6.0, 8.0);
+  pthread_t app_tid;
+  if (pthread_create(&app_tid, NULL, rmp_app_run, (void*)&app) != 0) {
+    rmp_log_error("main", "Failed to create app thread\n");
+    return EXIT_FAILURE;
+  }
 
-    double dot = rmp_vec2_dot(a, b);
-    ASSERT_EQ_DOUBLE(dot, 3.0 * 1.0 + 4.0 * 2.0);  // 11.0
+  // pthread_t keypad_tid;
+  // if (pthread_create(&keypad_tid, NULL, rmp_keypad_run, (void*)&keypad) != 0) {
+  //   rmp_log_error("main", "Failed to create keypad thread\n");
+  //   return EXIT_FAILURE;
+  // }
 
-    double len = rmp_vec2_len(a);
-    ASSERT_EQ_DOUBLE(len, 5.0);
+  pthread_t screen_tid;
+  if (pthread_create(&screen_tid, NULL, rmp_screen_run, (void*)&screen) != 0) {
+    rmp_log_error("main", "Failed to create screen thread\n");
+    return EXIT_FAILURE;
+  }
 
-    rmp_vec2_normalize(&c, a);
-    ASSERT_EQ_DOUBLE(rmp_vec2_len(c), 1.0);
+  pthread_mutex_lock(&app.mutex);
+  while (app.running) {
+    pthread_cond_wait(&app.cond, &app.mutex);
+  }
+  pthread_mutex_unlock(&app.mutex);
 
-    rmp_vec2_set(&a, 10.0, -5.0);
-    rmp_vec2_set(&min, 0.0, 0.0);
-    rmp_vec2_set(&max, 5.0, 5.0);
-    rmp_vec2_clamp(&c, a, min, max);
-    ASSERT_VEC_EQ(c, 5.0, 0.0);
+  pthread_join(app_tid, NULL);
+  // pthread_join(keypad_tid, NULL);
+  pthread_join(screen_tid, NULL);
 
-    printf("All rmp_vec2_t function API tests passed successfully\n");
-    return 0;
+  rmp_app_free(&app);
+  rmp_screen_free(&screen);
+  return EXIT_SUCCESS;
 }
-

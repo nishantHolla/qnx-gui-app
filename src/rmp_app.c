@@ -24,9 +24,9 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   pthread_mutex_init(&app->mutex, NULL);
   pthread_cond_init(&app->cond, NULL);
 
-  int pad_size_x = 10;
-  int pad_size_y = 100;
-  int pad_padding = 10;
+  int pad_size_x = 20;
+  int pad_size_y = 150;
+  int pad_padding = 100;
   int pad_pos_y = (RMP_APP_SCREEN_HEIGHT / 2) - (pad_size_y / 2);
 
   rmp_vec2_set(&app->pad_a.size, pad_size_x, pad_size_y);
@@ -37,7 +37,7 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   rmp_vec2_set(&app->pad_b.pos, RMP_APP_SCREEN_WIDTH - pad_padding - pad_size_x, pad_pos_y);
   rmp_vec2_set(&app->pad_b.vel, 0, 0);
 
-  int ball_size = 10;
+  int ball_size = 20;
   int ball_pos_x = (RMP_APP_SCREEN_WIDTH / 2) - (ball_size / 2);
   int ball_pos_y = (RMP_APP_SCREEN_HEIGHT / 2) - (ball_size / 2);
 

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <time.h>
@@ -13,8 +14,36 @@
 #define RMP_KEYPAD_TARGET_FPS 60
 #define RMP_KEYPAD_FRAME_TIME_US (1000000 / RMP_KEYPAD_TARGET_FPS)
 
+#define RMP_KEYDOWN    0x10
+#define RMP_KEYUP      0x00
+
+#define RMP_KEY0       0x00
+#define RMP_KEY1       0x01
+#define RMP_KEY2       0x02
+#define RMP_KEY3       0x03
+#define RMP_KEY4       0x04
+#define RMP_KEY5       0x05
+#define RMP_KEY6       0x06
+#define RMP_KEY7       0x07
+#define RMP_KEY8       0x08
+#define RMP_KEY9       0x09
+#define RMP_KEYA       0x0a
+#define RMP_KEYB       0x0b
+#define RMP_KEYC       0x0c
+#define RMP_KEYD       0x0d
+#define RMP_KEYE       0x0e
+#define RMP_KEYF       0x0f
+
+#define RMP_EVENT_QUIT       RMP_KEY3
+#define RMP_EVENT_PLAY_PAUSE RMP_KEYC
+#define RMP_EVENT_PAD_A_UP   RMP_KEY0
+#define RMP_EVENT_PAD_A_DOWN RMP_KEY4
+#define RMP_EVENT_PAD_B_UP   RMP_KEYB
+#define RMP_EVENT_PAD_B_DOWN RMP_KEYF
+
 static rmp_keypadRet_e init_gpio(int rows[4], int cols[4]);
 static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]);
+static void handle_event(uint8_t event, rmp_app_t* app);
 
 rmp_keypadRet_e rmp_keypad_init(rmp_keypad_t* keypad, rmp_app_t* app) {
   if (!keypad || !app) {
@@ -73,14 +102,9 @@ void* rmp_keypad_run(void* args) {
     scan_keypad(keypad->row_pins, keypad->col_pins, keypad->keys);
 
     for (int i = 0; i < 16; ++i) {
-      char c = (i > 9) ? (i - 10) + 'a' : i + '0';
       if (old_keys[i] != keypad->keys[i]) {
-        if (keypad->keys[i]) {
-          rmp_log_info("keypad", "KEYDOWN %c\n", c);
-        }
-        else {
-          rmp_log_info("keypad", "KEYUP %c\n", c);
-        }
+        uint8_t event = (keypad->keys[i]) ? (RMP_KEYDOWN | i) : (RMP_KEYUP | i);
+        handle_event(event, app);
       }
     }
 
@@ -129,4 +153,46 @@ static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]) {
   }
 
   return RMP_KEYPAD_OK;
+}
+
+static void handle_event(uint8_t event, rmp_app_t* app) {
+  pthread_mutex_lock(&app->mutex);
+
+  rmp_vec2_t v;
+  switch (event) {
+    case RMP_KEYUP | RMP_EVENT_QUIT:
+      app->running = false;
+      pthread_cond_signal(&app->cond);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_PLAY_PAUSE:
+      app->paused = !app->paused;
+      break;
+
+    case RMP_KEYDOWN | RMP_EVENT_PAD_A_UP:
+    case RMP_KEYUP | RMP_EVENT_PAD_A_DOWN:
+      rmp_vec2_set(&v, 0, -app->pad_speed);
+      rmp_vec2_add(&app->pad_a.vel, app->pad_a.vel, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_PAD_A_UP:
+    case RMP_KEYDOWN | RMP_EVENT_PAD_A_DOWN:
+      rmp_vec2_set(&v, 0, app->pad_speed);
+      rmp_vec2_add(&app->pad_a.vel, app->pad_a.vel, v);
+      break;
+
+    case RMP_KEYDOWN | RMP_EVENT_PAD_B_UP:
+    case RMP_KEYUP | RMP_EVENT_PAD_B_DOWN:
+      rmp_vec2_set(&v, 0, -app->pad_speed);
+      rmp_vec2_add(&app->pad_b.vel, app->pad_b.vel, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_PAD_B_UP:
+    case RMP_KEYDOWN | RMP_EVENT_PAD_B_DOWN:
+      rmp_vec2_set(&v, 0, app->pad_speed);
+      rmp_vec2_add(&app->pad_b.vel, app->pad_b.vel, v);
+      break;
+  }
+
+  pthread_mutex_unlock(&app->mutex);
 }

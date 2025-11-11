@@ -22,9 +22,11 @@ typedef struct {
 
 typedef struct {
   bool running;
+  bool paused;
   pthread_mutex_t mutex;
   pthread_cond_t cond;
 
+  int pad_speed;
   rmp_app_entity_t pad_a;
   rmp_app_entity_t pad_b;
   rmp_app_entity_t ball;

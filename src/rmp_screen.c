@@ -8,7 +8,7 @@
 #include <time.h>
 #include <pthread.h>
 
-#define RMP_SCREEN_TARGET_FPS 60
+#define RMP_SCREEN_TARGET_FPS 120
 #define RMP_SCREEN_FRAME_TIME_US (1000000 / RMP_SCREEN_TARGET_FPS)
 #define BACKGROUND_COLOR 0xff000000
 #define PAD_COLOR        0xffffffff

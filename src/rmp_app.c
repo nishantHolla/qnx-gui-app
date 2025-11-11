@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <pthread.h>
+#include <math.h>
 
 #define RMP_APP_TARGET_FPS 30
 #define RMP_APP_FRAME_TIME_US (1000000 / RMP_APP_TARGET_FPS)
@@ -27,6 +28,7 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   }
 
   app->running = true;
+  app->paused = true;
   pthread_mutex_init(&app->mutex, NULL);
   pthread_cond_init(&app->cond, NULL);
 
@@ -35,6 +37,7 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   int pad_padding = 50;
   int pad_pos_y = (RMP_SCREEN_HEIGHT / 2) - (pad_size_y / 2);
 
+  app->pad_speed = 20;
   rmp_vec2_set(&app->pad_a.size, pad_size_x, pad_size_y);
   rmp_vec2_set(&app->pad_a.pos, RMP_SCREEN_START_VEC.x + pad_padding, pad_pos_y);
   rmp_vec2_set(&app->pad_a.vel, 0, 0);
@@ -46,7 +49,7 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   int ball_size = 20;
   rmp_vec2_set(&app->ball.size, ball_size, ball_size);
   reset_ball_pos(app, ball_size);
-  rmp_vec2_set(&app->ball.vel, -5, 1);
+  rmp_vec2_set(&app->ball.vel, -12, 12);
 
   return RMP_APP_OK;
 }
@@ -98,32 +101,57 @@ void rmp_app_log_entity(const char* name, rmp_app_entity_t entity) {
 }
 
 static void step(rmp_app_t* app) {
+  if (app->paused) {
+    return;
+  }
+
+  // Update paddle A
+  rmp_vec2_add(&app->pad_a.pos, app->pad_a.pos, app->pad_a.vel);
+  app->pad_a.pos.y = fmaxf(RMP_SCREEN_START_VEC.y,
+                           fminf(app->pad_a.pos.y, RMP_SCREEN_END_VEC.y - app->pad_a.size.y));
+
+  // Update paddle B
+  rmp_vec2_add(&app->pad_b.pos, app->pad_b.pos, app->pad_b.vel);
+  app->pad_b.pos.y = fmaxf(RMP_SCREEN_START_VEC.y,
+                           fminf(app->pad_b.pos.y, RMP_SCREEN_END_VEC.y - app->pad_b.size.y));
+
+  // Store previous ball position for proper collision detection
+  float prev_ball_x = app->ball.pos.x;
+
+  // Update ball position
   rmp_vec2_add(&app->ball.pos, app->ball.pos, app->ball.vel);
 
-  if (app->ball.pos.y < RMP_SCREEN_START_VEC.y) {
+  // Top/bottom wall collision
+  if (app->ball.pos.y <= RMP_SCREEN_START_VEC.y) {
     app->ball.pos.y = RMP_SCREEN_START_VEC.y;
-    app->ball.vel.y *= -1;
+    app->ball.vel.y = fabs(app->ball.vel.y); // Force downward
   }
-
   if (app->ball.pos.y + app->ball.size.y >= RMP_SCREEN_END_VEC.y) {
     app->ball.pos.y = RMP_SCREEN_END_VEC.y - app->ball.size.y;
-    app->ball.vel.y *= -1;
+    app->ball.vel.y = -fabs(app->ball.vel.y); // Force upward
   }
 
-  if (app->ball.pos.x < app->pad_a.pos.x + app->pad_a.size.x &&
-      app->pad_a.pos.y <= app->ball.pos.y &&
-      app->pad_a.pos.y + app->pad_a.size.y >= app->ball.pos.y + app->ball.size.y) {
+  // Paddle A collision (left paddle)
+  if (app->ball.vel.x < 0 && // Ball moving left
+    prev_ball_x >= app->pad_a.pos.x + app->pad_a.size.x && // Was right of paddle
+    app->ball.pos.x <= app->pad_a.pos.x + app->pad_a.size.x && // Now overlapping
+    app->ball.pos.y + app->ball.size.y > app->pad_a.pos.y && // Vertical overlap check
+    app->ball.pos.y < app->pad_a.pos.y + app->pad_a.size.y) {
     app->ball.pos.x = app->pad_a.pos.x + app->pad_a.size.x;
-    app->ball.vel.x *= -1;
+    app->ball.vel.x = fabs(app->ball.vel.x); // Force rightward
   }
 
-  if (app->ball.pos.x + app->ball.size.x >= app->pad_b.pos.x &&
-      app->pad_b.pos.y <= app->ball.pos.y &&
-      app->pad_b.pos.y + app->pad_b.size.y >= app->ball.pos.y + app->ball.size.y) {
+  // Paddle B collision (right paddle)
+  if (app->ball.vel.x > 0 && // Ball moving right
+    prev_ball_x + app->ball.size.x <= app->pad_b.pos.x && // Was left of paddle
+    app->ball.pos.x + app->ball.size.x >= app->pad_b.pos.x && // Now overlapping
+    app->ball.pos.y + app->ball.size.y > app->pad_b.pos.y && // Vertical overlap check
+    app->ball.pos.y < app->pad_b.pos.y + app->pad_b.size.y) {
     app->ball.pos.x = app->pad_b.pos.x - app->ball.size.x;
-    app->ball.vel.x *= -1;
+    app->ball.vel.x = -fabs(app->ball.vel.x); // Force leftward
   }
 
+  // Score/reset (left or right boundary)
   if (app->ball.pos.x < RMP_SCREEN_START_VEC.x ||
     app->ball.pos.x + app->ball.size.x >= RMP_SCREEN_END_VEC.x) {
     reset_ball_pos(app, app->ball.size.x);

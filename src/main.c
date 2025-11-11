@@ -9,10 +9,6 @@ int main(void) {
   rmp_app_t app;
   rmp_app_init(&app);
 
-  rmp_app_log_entity("pad_a", app.pad_a);
-  rmp_app_log_entity("pad_b", app.pad_b);
-  rmp_app_log_entity("ball",  app.ball);
-
   // rmp_keypad_t keypad;
   // rmp_keypad_init(&keypad, &app);
 

@@ -8,7 +8,7 @@
 #include <time.h>
 #include <pthread.h>
 
-#define RMP_SCREEN_TARGET_FPS 3
+#define RMP_SCREEN_TARGET_FPS 60
 #define RMP_SCREEN_FRAME_TIME_US (1000000 / RMP_SCREEN_TARGET_FPS)
 #define BACKGROUND_COLOR 0xff000000
 #define PAD_COLOR        0xffffffff
@@ -40,6 +40,9 @@ rmp_screenRet_e rmp_screen_init(rmp_screen_t* screen, rmp_app_t* app) {
 
   int usage = SCREEN_USAGE_ROTATION | SCREEN_USAGE_WRITE;
   screen_set_window_property_iv(screen->win, SCREEN_PROPERTY_USAGE, &usage);
+
+  int position[2] = {50, 30};
+screen_set_window_property_iv(screen->win, SCREEN_PROPERTY_POSITION, position);
 
   rc = screen_create_window_buffers(screen->win, 1);
   if (rc) {
@@ -124,6 +127,20 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
                  app->ball.size.x,
                  app->ball.size.y,
                  PAD_COLOR);
+
+  draw_rectangle(screen,
+                 RMP_SCREEN_START_VEC.x,
+                 RMP_SCREEN_START_VEC.y,
+                 5,
+                 5,
+                 0xffff0000);
+
+  draw_rectangle(screen,
+                 RMP_SCREEN_END_VEC.x,
+                 RMP_SCREEN_END_VEC.y,
+                 5,
+                 5,
+                 0xffff0000);
 
   screen_post_window(screen->win, screen->buf, 0, NULL, 0);
 }

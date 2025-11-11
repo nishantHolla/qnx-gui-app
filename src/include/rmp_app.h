@@ -6,9 +6,6 @@
 #include <stdbool.h>
 #include <pthread.h>
 
-#define RMP_APP_SCREEN_WIDTH  1920
-#define RMP_APP_SCREEN_HEIGHT 1080
-
 extern const rmp_vec2_t RMP_SCREEN_START_VEC;
 extern const rmp_vec2_t RMP_SCREEN_END_VEC;
 

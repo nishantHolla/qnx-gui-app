@@ -40,6 +40,7 @@
 #define RMP_EVENT_PAD_A_DOWN RMP_KEY4
 #define RMP_EVENT_PAD_B_UP   RMP_KEYB
 #define RMP_EVENT_PAD_B_DOWN RMP_KEYF
+#define RMP_EVENT_TOGGLE_AI  RMP_KEYD
 
 static rmp_keypadRet_e init_gpio(int rows[4], int cols[4]);
 static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]);
@@ -77,6 +78,7 @@ rmp_keypadRet_e rmp_keypad_init(rmp_keypad_t* keypad, rmp_app_t* app) {
 
   keypad->app = app;
 
+  rmp_log_info("keypad", "Initialized keypad\n");
   return RMP_KEYPAD_OK;
 }
 
@@ -88,6 +90,7 @@ void* rmp_keypad_run(void* args) {
   rmp_keypad_t* keypad = (rmp_keypad_t*)args;
   rmp_app_t* app = keypad->app;
 
+  rmp_log_info("keypad", "Started keypad scan\n");
   while (true) {
     pthread_mutex_lock(&app->mutex);
     if (!app->running) {
@@ -183,14 +186,27 @@ static void handle_event(uint8_t event, rmp_app_t* app) {
 
     case RMP_KEYDOWN | RMP_EVENT_PAD_B_UP:
     case RMP_KEYUP | RMP_EVENT_PAD_B_DOWN:
+      if (app->ai_is_playing) {
+        break;
+      };
       rmp_vec2_set(&v, 0, -app->pad_speed);
       rmp_vec2_add(&app->pad_b.vel, app->pad_b.vel, v);
       break;
 
     case RMP_KEYUP | RMP_EVENT_PAD_B_UP:
     case RMP_KEYDOWN | RMP_EVENT_PAD_B_DOWN:
+      if (app->ai_is_playing) {
+        break;
+      };
       rmp_vec2_set(&v, 0, app->pad_speed);
       rmp_vec2_add(&app->pad_b.vel, app->pad_b.vel, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_TOGGLE_AI:
+      app->ai_is_playing = !app->ai_is_playing;
+      if (!app->ai_is_playing) {
+        rmp_vec2_set(&app->pad_b.vel, 0, 0);
+      }
       break;
   }
 

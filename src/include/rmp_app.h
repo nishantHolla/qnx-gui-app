@@ -8,6 +8,8 @@
 
 extern const rmp_vec2_t RMP_SCREEN_START_VEC;
 extern const rmp_vec2_t RMP_SCREEN_END_VEC;
+extern const int RMP_SCREEN_WIDTH;
+extern const int RMP_SCREEN_HEIGHT;
 
 typedef enum {
   RMP_APP_OK,
@@ -27,6 +29,7 @@ typedef struct {
   pthread_cond_t cond;
 
   int pad_speed;
+  bool ai_is_playing;
   rmp_app_entity_t pad_a;
   rmp_app_entity_t pad_b;
   rmp_app_entity_t ball;

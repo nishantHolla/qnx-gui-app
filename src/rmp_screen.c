@@ -12,6 +12,7 @@
 #define RMP_SCREEN_FRAME_TIME_US (1000000 / RMP_SCREEN_TARGET_FPS)
 #define BACKGROUND_COLOR 0xff000000
 #define PAD_COLOR        0xffffffff
+#define AI_PAD_COLOR     0x22ffffff
 #define BALL_COLOR       0xffffffff
 
 static void render(rmp_screen_t* screen, rmp_app_t* app);
@@ -41,9 +42,6 @@ rmp_screenRet_e rmp_screen_init(rmp_screen_t* screen, rmp_app_t* app) {
   int usage = SCREEN_USAGE_ROTATION | SCREEN_USAGE_WRITE;
   screen_set_window_property_iv(screen->win, SCREEN_PROPERTY_USAGE, &usage);
 
-  int position[2] = {50, 30};
-screen_set_window_property_iv(screen->win, SCREEN_PROPERTY_POSITION, position);
-
   rc = screen_create_window_buffers(screen->win, 1);
   if (rc) {
     rmp_log_error("screen", "Failed to create screen window buffers\n");
@@ -57,6 +55,7 @@ screen_set_window_property_iv(screen->win, SCREEN_PROPERTY_POSITION, position);
 
   screen->app = app;
 
+  rmp_log_info("screen", "Initialized screen\n");
   return RMP_SCREEN_OK;
 }
 
@@ -79,6 +78,7 @@ void* rmp_screen_run(void* args) {
   rmp_screen_t* screen = (rmp_screen_t*)args;
   rmp_app_t* app = screen->app;
 
+  rmp_log_info("screen", "Started screen render\n");
   while (true) {
     pthread_mutex_lock(&app->mutex);
     if (!app->running) {
@@ -107,6 +107,7 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
   int win_background[] = {SCREEN_BLIT_COLOR, BACKGROUND_COLOR, SCREEN_BLIT_END};
   screen_fill(screen->ctx, screen->buf, win_background);
 
+  /// Pad A
   draw_rectangle(screen,
                  app->pad_a.pos.x,
                  app->pad_a.pos.y,
@@ -114,13 +115,15 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
                  app->pad_a.size.y,
                  PAD_COLOR);
 
+  /// Pad B
   draw_rectangle(screen,
                  app->pad_b.pos.x,
                  app->pad_b.pos.y,
                  app->pad_b.size.x,
                  app->pad_b.size.y,
-                 PAD_COLOR);
+                 app->ai_is_playing ? AI_PAD_COLOR : PAD_COLOR);
 
+  /// Ball
   draw_rectangle(screen,
                  app->ball.pos.x,
                  app->ball.pos.y,
@@ -128,6 +131,7 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
                  app->ball.size.y,
                  PAD_COLOR);
 
+  /// Top left corner
   draw_rectangle(screen,
                  RMP_SCREEN_START_VEC.x,
                  RMP_SCREEN_START_VEC.y,
@@ -135,6 +139,7 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
                  5,
                  0xffff0000);
 
+  /// Bottom right corner
   draw_rectangle(screen,
                  RMP_SCREEN_END_VEC.x,
                  RMP_SCREEN_END_VEC.y,

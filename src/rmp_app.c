@@ -21,6 +21,7 @@ const int RMP_SCREEN_HEIGHT = RMP_SCREEN_END_VEC.y - RMP_SCREEN_START_VEC.y;
 
 static void step(rmp_app_t* app);
 static void reset_ball_pos(rmp_app_t* app, int ball_size);
+static void make_ai_move(rmp_app_t* app);
 
 rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   if (!app) {
@@ -38,6 +39,7 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   int pad_pos_y = (RMP_SCREEN_HEIGHT / 2) - (pad_size_y / 2);
 
   app->pad_speed = 20;
+  app->ai_is_playing = true;
   rmp_vec2_set(&app->pad_a.size, pad_size_x, pad_size_y);
   rmp_vec2_set(&app->pad_a.pos, RMP_SCREEN_START_VEC.x + pad_padding, pad_pos_y);
   rmp_vec2_set(&app->pad_a.vel, 0, 0);
@@ -49,8 +51,9 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
   int ball_size = 20;
   rmp_vec2_set(&app->ball.size, ball_size, ball_size);
   reset_ball_pos(app, ball_size);
-  rmp_vec2_set(&app->ball.vel, -12, 12);
+  rmp_vec2_set(&app->ball.vel, 12, 12);
 
+  rmp_log_info("app", "Initialized app\n");
   return RMP_APP_OK;
 }
 
@@ -72,6 +75,7 @@ void* rmp_app_run(void* args) {
 
   rmp_app_t* app = (rmp_app_t*)args;
 
+  rmp_log_info("app", "Started app run\n");
   while (true) {
     pthread_mutex_lock(&app->mutex);
     if (!app->running) {
@@ -103,6 +107,10 @@ void rmp_app_log_entity(const char* name, rmp_app_entity_t entity) {
 static void step(rmp_app_t* app) {
   if (app->paused) {
     return;
+  }
+
+  if (app->ai_is_playing) {
+    make_ai_move(app);
   }
 
   // Update paddle A
@@ -167,4 +175,55 @@ static void reset_ball_pos(rmp_app_t* app, int ball_size) {
   int ball_pos_y = (RMP_SCREEN_HEIGHT / 2) - (ball_size / 2);
 
   rmp_vec2_set(&app->ball.pos, ball_pos_x, ball_pos_y);
+}
+
+static float predict_ball_intersection(rmp_app_t* app) {
+  if (app->ball.vel.x <= 0) {
+    return app->ball.pos.y + app->ball.size.y / 2.0f;
+  }
+
+  float dx = app->pad_b.pos.x - (app->ball.pos.x + app->ball.size.x);
+  float time_to_reach = dx / app->ball.vel.x;
+
+  float predicted_y = app->ball.pos.y + app->ball.vel.y * time_to_reach;
+  float ball_center_y = predicted_y + app->ball.size.y / 2.0f;
+
+  float field_height = RMP_SCREEN_HEIGHT;
+
+  while (ball_center_y < 0 || ball_center_y > field_height) {
+    if (ball_center_y < 0) {
+      ball_center_y = -ball_center_y;
+    }
+    else if (ball_center_y > field_height) {
+      ball_center_y = 2 * field_height - ball_center_y;
+    }
+  }
+
+  return ball_center_y;
+}
+
+static void make_ai_move(rmp_app_t* app) {
+  if (!app) {
+    return;
+  }
+
+  float predicted_y = predict_ball_intersection(app);
+
+  float error_margin = 5.0f;
+  predicted_y += (rand() % (int)(error_margin * 2)) - error_margin;
+
+  float paddle_center = app->pad_b.pos.y + app->pad_b.size.y / 2.0f;
+  float target_y = predicted_y;
+
+  float dead_zone = app->pad_b.size.y * 0.3f;
+
+  if (target_y < paddle_center - dead_zone) {
+    rmp_vec2_set(&app->pad_b.vel, 0, -app->pad_speed);
+  }
+  else if (target_y > paddle_center + dead_zone) {
+    rmp_vec2_set(&app->pad_b.vel, 0, app->pad_speed);
+  }
+  else {
+    rmp_vec2_set(&app->pad_b.vel, 0, 0);
+  }
 }

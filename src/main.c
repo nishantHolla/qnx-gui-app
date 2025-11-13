@@ -4,8 +4,10 @@
 #include "rmp_log.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 
 int main(void) {
+  rmp_log_info("main", "===> Initializing components\n");
   rmp_app_t app;
   rmp_app_init(&app);
 
@@ -15,6 +17,9 @@ int main(void) {
   rmp_screen_t screen;
   rmp_screen_init(&screen, &app);
 
+  printf("\n");
+
+  rmp_log_info("main", "===> Starting components\n");
   pthread_t app_tid;
   if (pthread_create(&app_tid, NULL, rmp_app_run, (void*)&app) != 0) {
     rmp_log_error("main", "Failed to create app thread\n");
@@ -32,18 +37,34 @@ int main(void) {
     rmp_log_error("main", "Failed to create screen thread\n");
     return EXIT_FAILURE;
   }
+  sleep(1);
 
+  printf("\n");
+
+  rmp_log_info("main", "===> Wating for app to close\n");
   pthread_mutex_lock(&app.mutex);
   while (app.running) {
     pthread_cond_wait(&app.cond, &app.mutex);
   }
   pthread_mutex_unlock(&app.mutex);
 
+  printf("\n");
+
+  rmp_log_info("main", "===> Joining threads\n");
+
   pthread_join(app_tid, NULL);
   pthread_join(keypad_tid, NULL);
   pthread_join(screen_tid, NULL);
 
+  printf("\n");
+
+  rmp_log_info("main", "===> Destroying components\n");
+
   rmp_app_free(&app);
   rmp_screen_free(&screen);
+
+  printf("\n");
+
+  rmp_log_info("main", "===> Goodbye\n");
   return EXIT_SUCCESS;
 }

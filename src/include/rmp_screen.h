@@ -15,6 +15,7 @@ typedef struct {
   screen_context_t ctx;
   screen_window_t win;
   screen_buffer_t buf;
+  screen_event_t event;
 
   rmp_app_t* app;
 } rmp_screen_t;

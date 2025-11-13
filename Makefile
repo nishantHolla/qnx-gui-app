@@ -16,7 +16,7 @@ SRCS = $(shell find $(SRC_DIR) -name '*.c')
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 BIN  = $(OUTDIR)/main
 
-all: $(BIN)
+all: clean $(BIN)
 
 $(BIN): $(OBJS)
 	@mkdir -p $(dir $@)

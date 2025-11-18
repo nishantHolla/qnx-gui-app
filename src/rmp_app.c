@@ -14,13 +14,8 @@
 #define RMP_APP_TARGET_FPS 30
 #define RMP_APP_FRAME_TIME_US (1000000 / RMP_APP_TARGET_FPS)
 
-const rmp_vec2_t RMP_SCREEN_START_VEC = { .x = 50,    .y = 30  };
-const rmp_vec2_t RMP_SCREEN_END_VEC   = { .x = 1870, .y = 1050 };
-const int RMP_SCREEN_WIDTH = RMP_SCREEN_END_VEC.x - RMP_SCREEN_START_VEC.x;
-const int RMP_SCREEN_HEIGHT = RMP_SCREEN_END_VEC.y - RMP_SCREEN_START_VEC.y;
-
 static void step(rmp_app_t* app);
-static void reset_ball_pos(rmp_app_t* app, int ball_size);
+static void reset_ball_pos(rmp_app_t* app);
 static void make_ai_move(rmp_app_t* app);
 
 rmp_appRet_e rmp_app_init(rmp_app_t* app) {
@@ -30,27 +25,31 @@ rmp_appRet_e rmp_app_init(rmp_app_t* app) {
 
   app->running = true;
   app->paused = true;
+  app->recalibrating = false;
+  app->ai_is_playing = true;
+
   pthread_mutex_init(&app->mutex, NULL);
   pthread_cond_init(&app->cond, NULL);
 
-  int pad_size_x = 20;
-  int pad_size_y = 150;
-  int pad_padding = 50;
-  int pad_pos_y = (RMP_SCREEN_HEIGHT / 2) - (pad_size_y / 2);
+  rmp_vec2_set(&app->SCREEN_START, 50, 30);
+  rmp_vec2_set(&app->SCREEN_END, 1870, 1050);
 
+  rmp_vec2_set(&app->pad_size, 20, 150);
+  app->pad_padding = 50;
   app->pad_speed = 20;
-  app->ai_is_playing = true;
-  rmp_vec2_set(&app->pad_a.size, pad_size_x, pad_size_y);
-  rmp_vec2_set(&app->pad_a.pos, RMP_SCREEN_START_VEC.x + pad_padding, pad_pos_y);
+
+  int pad_pos_y = app->SCREEN_START.y + ((SCREEN_HEIGHT_P(app) / 2.0) - (app->pad_size.y / 2.0));
+  rmp_vec2_set(&app->pad_a.size, app->pad_size.x, app->pad_size.y);
+  rmp_vec2_set(&app->pad_a.pos, app->SCREEN_START.x + app->pad_padding, pad_pos_y);
   rmp_vec2_set(&app->pad_a.vel, 0, 0);
 
-  rmp_vec2_set(&app->pad_b.size, pad_size_x, pad_size_y);
-  rmp_vec2_set(&app->pad_b.pos, RMP_SCREEN_END_VEC.x - pad_padding - pad_size_x, pad_pos_y);
+  rmp_vec2_set(&app->pad_b.size, app->pad_size.x, app->pad_size.y);
+  rmp_vec2_set(&app->pad_b.pos, app->SCREEN_END.x - app->pad_padding - app->pad_size.x, pad_pos_y);
   rmp_vec2_set(&app->pad_b.vel, 0, 0);
 
-  int ball_size = 20;
-  rmp_vec2_set(&app->ball.size, ball_size, ball_size);
-  reset_ball_pos(app, ball_size);
+  app->ball_size = 20;
+  rmp_vec2_set(&app->ball.size, app->ball_size, app->ball_size);
+  reset_ball_pos(app);
   rmp_vec2_set(&app->ball.vel, 12, 12);
 
   rmp_log_info("app", "Initialized app\n");
@@ -104,8 +103,23 @@ void rmp_app_log_entity(const char* name, rmp_app_entity_t entity) {
   printf("    size: %.2lf %.2lf\n", entity.size.x, entity.size.y);
 }
 
+void rmp_app_recalibrate(rmp_app_t* app) {
+  if (!app) {
+    return;
+  }
+
+  int pad_pos_y = app->SCREEN_START.y + ((SCREEN_HEIGHT_P(app) / 2.0) - (app->pad_size.y / 2.0));
+  rmp_vec2_set(&app->pad_a.size, app->pad_size.x, app->pad_size.y);
+  rmp_vec2_set(&app->pad_a.pos, app->SCREEN_START.x + app->pad_padding, pad_pos_y);
+  rmp_vec2_set(&app->pad_a.vel, 0, 0);
+
+  rmp_vec2_set(&app->pad_b.size, app->pad_size.x, app->pad_size.y);
+  rmp_vec2_set(&app->pad_b.pos, app->SCREEN_END.x - app->pad_padding - app->pad_size.x, pad_pos_y);
+  rmp_vec2_set(&app->pad_b.vel, 0, 0);
+}
+
 static void step(rmp_app_t* app) {
-  if (app->paused) {
+  if (app->paused || app->recalibrating) {
     return;
   }
 
@@ -115,13 +129,13 @@ static void step(rmp_app_t* app) {
 
   // Update paddle A
   rmp_vec2_add(&app->pad_a.pos, app->pad_a.pos, app->pad_a.vel);
-  app->pad_a.pos.y = fmaxf(RMP_SCREEN_START_VEC.y,
-                           fminf(app->pad_a.pos.y, RMP_SCREEN_END_VEC.y - app->pad_a.size.y));
+  app->pad_a.pos.y = fmaxf(app->SCREEN_START.y,
+                           fminf(app->pad_a.pos.y, app->SCREEN_END.y - app->pad_a.size.y));
 
   // Update paddle B
   rmp_vec2_add(&app->pad_b.pos, app->pad_b.pos, app->pad_b.vel);
-  app->pad_b.pos.y = fmaxf(RMP_SCREEN_START_VEC.y,
-                           fminf(app->pad_b.pos.y, RMP_SCREEN_END_VEC.y - app->pad_b.size.y));
+  app->pad_b.pos.y = fmaxf(app->SCREEN_START.y,
+                           fminf(app->pad_b.pos.y, app->SCREEN_END.y - app->pad_b.size.y));
 
   // Store previous ball position for proper collision detection
   float prev_ball_x = app->ball.pos.x;
@@ -130,12 +144,12 @@ static void step(rmp_app_t* app) {
   rmp_vec2_add(&app->ball.pos, app->ball.pos, app->ball.vel);
 
   // Top/bottom wall collision
-  if (app->ball.pos.y <= RMP_SCREEN_START_VEC.y) {
-    app->ball.pos.y = RMP_SCREEN_START_VEC.y;
+  if (app->ball.pos.y <= app->SCREEN_START.y) {
+    app->ball.pos.y = app->SCREEN_START.y;
     app->ball.vel.y = fabs(app->ball.vel.y); // Force downward
   }
-  if (app->ball.pos.y + app->ball.size.y >= RMP_SCREEN_END_VEC.y) {
-    app->ball.pos.y = RMP_SCREEN_END_VEC.y - app->ball.size.y;
+  if (app->ball.pos.y + app->ball.size.y >= app->SCREEN_END.y) {
+    app->ball.pos.y = app->SCREEN_END.y - app->ball.size.y;
     app->ball.vel.y = -fabs(app->ball.vel.y); // Force upward
   }
 
@@ -160,19 +174,19 @@ static void step(rmp_app_t* app) {
   }
 
   // Score/reset (left or right boundary)
-  if (app->ball.pos.x < RMP_SCREEN_START_VEC.x ||
-    app->ball.pos.x + app->ball.size.x >= RMP_SCREEN_END_VEC.x) {
-    reset_ball_pos(app, app->ball.size.x);
+  if (app->ball.pos.x < app->SCREEN_START.x ||
+    app->ball.pos.x + app->ball.size.x >= app->SCREEN_END.x) {
+    reset_ball_pos(app);
   }
 }
 
-static void reset_ball_pos(rmp_app_t* app, int ball_size) {
+static void reset_ball_pos(rmp_app_t* app) {
   if (!app) {
     return;
   }
 
-  int ball_pos_x = (RMP_SCREEN_WIDTH / 2) - (ball_size / 2);
-  int ball_pos_y = (RMP_SCREEN_HEIGHT / 2) - (ball_size / 2);
+  int ball_pos_x = app->SCREEN_START.x + (SCREEN_WIDTH_P(app) / 2.0) - (app->ball_size / 2.0);
+  int ball_pos_y = app->SCREEN_START.y + (SCREEN_HEIGHT_P(app) / 2.0) - (app->ball_size / 2.0);
 
   rmp_vec2_set(&app->ball.pos, ball_pos_x, ball_pos_y);
 }
@@ -188,7 +202,7 @@ static float predict_ball_intersection(rmp_app_t* app) {
   float predicted_y = app->ball.pos.y + app->ball.vel.y * time_to_reach;
   float ball_center_y = predicted_y + app->ball.size.y / 2.0f;
 
-  float field_height = RMP_SCREEN_HEIGHT;
+  float field_height = SCREEN_HEIGHT_P(app);
 
   while (ball_center_y < 0 || ball_center_y > field_height) {
     if (ball_center_y < 0) {
@@ -227,3 +241,4 @@ static void make_ai_move(rmp_app_t* app) {
     rmp_vec2_set(&app->pad_b.vel, 0, 0);
   }
 }
+

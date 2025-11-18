@@ -34,17 +34,29 @@
 #define RMP_KEYE       0x0e
 #define RMP_KEYF       0x0f
 
-#define RMP_EVENT_QUIT       RMP_KEY3
-#define RMP_EVENT_PLAY_PAUSE RMP_KEYC
-#define RMP_EVENT_PAD_A_UP   RMP_KEY0
-#define RMP_EVENT_PAD_A_DOWN RMP_KEY4
-#define RMP_EVENT_PAD_B_UP   RMP_KEYB
-#define RMP_EVENT_PAD_B_DOWN RMP_KEYF
-#define RMP_EVENT_TOGGLE_AI  RMP_KEYD
+#define RMP_EVENT_QUIT             RMP_KEY3
+#define RMP_EVENT_PLAY_PAUSE       RMP_KEYC
+#define RMP_EVENT_PAD_A_UP         RMP_KEY0
+#define RMP_EVENT_PAD_A_DOWN       RMP_KEY4
+#define RMP_EVENT_PAD_B_UP         RMP_KEYB
+#define RMP_EVENT_PAD_B_DOWN       RMP_KEYF
+#define RMP_EVENT_TOGGLE_AI        RMP_KEYD
+
+#define RMP_EVENT_TOGGLE_RECAL     RMP_KEYE
+#define RMP_EVENT_RECAL_TL_LEFT    RMP_KEY0
+#define RMP_EVENT_RECAL_TL_DOWN    RMP_KEY1
+#define RMP_EVENT_RECAL_TL_UP      RMP_KEY2
+#define RMP_EVENT_RECAL_TL_RIGHT   RMP_KEY3
+#define RMP_EVENT_RECAL_BR_LEFT    RMP_KEY4
+#define RMP_EVENT_RECAL_BR_DOWN    RMP_KEY5
+#define RMP_EVENT_RECAL_BR_UP      RMP_KEY6
+#define RMP_EVENT_RECAL_BR_RIGHT   RMP_KEY7
 
 static rmp_keypadRet_e init_gpio(int rows[4], int cols[4]);
 static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]);
 static void handle_event(uint8_t event, rmp_app_t* app);
+static void handle_game_event(uint8_t event, rmp_app_t* app);
+static void handle_recal_event(uint8_t event, rmp_app_t* app);
 
 rmp_keypadRet_e rmp_keypad_init(rmp_keypad_t* keypad, rmp_app_t* app) {
   if (!keypad || !app) {
@@ -158,10 +170,23 @@ static rmp_keypadRet_e scan_keypad(int rows[4], int cols[4], int keys[16]) {
   return RMP_KEYPAD_OK;
 }
 
+
 static void handle_event(uint8_t event, rmp_app_t* app) {
   pthread_mutex_lock(&app->mutex);
 
+  if (app->recalibrating) {
+    handle_recal_event(event, app);
+  }
+  else {
+    handle_game_event(event, app);
+  }
+
+  pthread_mutex_unlock(&app->mutex);
+}
+
+static void handle_game_event(uint8_t event, rmp_app_t* app) {
   rmp_vec2_t v;
+
   switch (event) {
     case RMP_KEYUP | RMP_EVENT_QUIT:
       app->running = false;
@@ -170,6 +195,17 @@ static void handle_event(uint8_t event, rmp_app_t* app) {
 
     case RMP_KEYUP | RMP_EVENT_PLAY_PAUSE:
       app->paused = !app->paused;
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_TOGGLE_AI:
+      app->ai_is_playing = !app->ai_is_playing;
+      if (!app->ai_is_playing) {
+        rmp_vec2_set(&app->pad_b.vel, 0, 0);
+      }
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_TOGGLE_RECAL:
+      app->recalibrating = !app->recalibrating;
       break;
 
     case RMP_KEYDOWN | RMP_EVENT_PAD_A_UP:
@@ -201,14 +237,57 @@ static void handle_event(uint8_t event, rmp_app_t* app) {
       rmp_vec2_set(&v, 0, app->pad_speed);
       rmp_vec2_add(&app->pad_b.vel, app->pad_b.vel, v);
       break;
+  }
+}
 
-    case RMP_KEYUP | RMP_EVENT_TOGGLE_AI:
-      app->ai_is_playing = !app->ai_is_playing;
-      if (!app->ai_is_playing) {
-        rmp_vec2_set(&app->pad_b.vel, 0, 0);
-      }
+static void handle_recal_event(uint8_t event, rmp_app_t* app) {
+  rmp_vec2_t v;
+  const int step = 5;
+
+  switch (event) {
+    case RMP_KEYUP | RMP_EVENT_RECAL_TL_LEFT:
+      rmp_vec2_set(&v, -step, 0);
+      rmp_vec2_add(&app->SCREEN_START, app->SCREEN_START, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_TL_DOWN:
+      rmp_vec2_set(&v, 0, step);
+      rmp_vec2_add(&app->SCREEN_START, app->SCREEN_START, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_TL_UP:
+      rmp_vec2_set(&v, 0, -step);
+      rmp_vec2_add(&app->SCREEN_START, app->SCREEN_START, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_TL_RIGHT:
+      rmp_vec2_set(&v, step, 0);
+      rmp_vec2_add(&app->SCREEN_START, app->SCREEN_START, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_BR_LEFT:
+      rmp_vec2_set(&v, -step, 0);
+      rmp_vec2_add(&app->SCREEN_END, app->SCREEN_END, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_BR_DOWN:
+      rmp_vec2_set(&v, 0, step);
+      rmp_vec2_add(&app->SCREEN_END, app->SCREEN_END, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_BR_UP:
+      rmp_vec2_set(&v, 0, -step);
+      rmp_vec2_add(&app->SCREEN_END, app->SCREEN_END, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_RECAL_BR_RIGHT:
+      rmp_vec2_set(&v, step, 0);
+      rmp_vec2_add(&app->SCREEN_END, app->SCREEN_END, v);
+      break;
+
+    case RMP_KEYUP | RMP_EVENT_TOGGLE_RECAL:
+      app->recalibrating = !app->recalibrating;
+      rmp_app_recalibrate(app);
       break;
   }
-
-  pthread_mutex_unlock(&app->mutex);
 }

@@ -9,6 +9,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <sys/keycodes.h>
+#include <stdint.h>
 
 #define RMP_SCREEN_TARGET_FPS 120
 #define RMP_SCREEN_FRAME_TIME_US (1000000 / RMP_SCREEN_TARGET_FPS)
@@ -231,21 +232,23 @@ static void render(rmp_screen_t* screen, rmp_app_t* app) {
                  app->ball.size.y,
                  PAD_COLOR);
 
-  /// Top left corner
-  draw_rectangle(screen,
-                 RMP_SCREEN_START_VEC.x,
-                 RMP_SCREEN_START_VEC.y,
-                 5,
-                 5,
-                 0xffff0000);
+  if (app->recalibrating) {
+    /// Top left corner
+    draw_rectangle(screen,
+                   app->SCREEN_START.x,
+                   app->SCREEN_START.y,
+                   5,
+                   5,
+                   0xffff0000);
 
-  /// Bottom right corner
-  draw_rectangle(screen,
-                 RMP_SCREEN_END_VEC.x,
-                 RMP_SCREEN_END_VEC.y,
-                 5,
-                 5,
-                 0xffff0000);
+    /// Bottom right corner
+    draw_rectangle(screen,
+                   app->SCREEN_END.x,
+                   app->SCREEN_END.y,
+                   5,
+                   5,
+                   0xffff0000);
+  }
 
   screen_post_window(screen->win, screen->buf, 0, NULL, 0);
 }

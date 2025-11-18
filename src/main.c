@@ -3,6 +3,7 @@
 #include "rmp_screen.h"
 #include "rmp_log.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 

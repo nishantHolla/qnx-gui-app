@@ -1,6 +1,6 @@
 #!/bin/sh
 
-IP=192.168.29.162
+IP=
 OUT=./out/main
 DEPLOY_PATH=./main
 USERNAME=qnxuser

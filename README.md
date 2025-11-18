@@ -5,7 +5,7 @@ Operating Systems course.
 
 ## Requirements
 
-- RPi 4b
+- Raspberry Pi 4b
 - Monitor
 - 4x4 button input matrix keypad
 

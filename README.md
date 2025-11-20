@@ -37,30 +37,6 @@ These connection pins can be changed by modifying `./src/rmp_keypad.c` file
 
 These key controls can be changed by modifying `./src/rmp_keypad.c` file
 
-## Project structure
-
-```bash
-.
-├── deploy.sh               # Script to deploy the compiled app to the Raspberry Pi
-├── Makefile                # Build rules for compiling and linking the QNX Screen app
-└── src
-    ├── include
-    │   ├── rmp_app.h       # App-level structures, init routines, and main control flow API
-    │   ├── rmp_config.h    # Central configuration constants (screen sizes, colors, timings)
-    │   ├── rmp_keypad.h    # Driver for 4x4 button matrix keypad input handling interface
-    │   ├── rmp_log.h       # Lightweight logging utilities for debugging on QNX
-    │   ├── rmp_screen.h    # Wrappers for QNX Screen API (windows, sessions, drawing)
-    │   ├── rmp_time.h      # Time utilities (ticks, delays, timestamps)
-    │   └── rmp_vec2.h      # 2D vector math helpers for UI/layout calculations
-    ├── main.c              # Entry point of the application; initializes and runs the app loop
-    ├── rmp_app.c           # Core application logic and lifecycle management
-    ├── rmp_keypad.c        # Implementation of keypad event reading and dispatching
-    ├── rmp_log.c           # Logging implementation (file/console)
-    ├── rmp_screen.c        # Actual QNX Screen API calls and rendering helpers
-    ├── rmp_time.c          # Time/clock function implementations
-    └── rmp_vec2.c          # Vector math implementation (addition, scaling, etc.)
-```
-
 ## Building
 
 - Clone the repo
